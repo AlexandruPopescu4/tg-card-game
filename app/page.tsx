@@ -16,7 +16,7 @@ interface Card {
   speed: number;
 }
 
-type ScreenState = "builder" | "summary";
+type ScreenState = "builder" | "summary" | "battle";
 
 declare global {
   interface Window {
@@ -38,9 +38,19 @@ export default function HomePage() {
   const [user, setUser] = useState<TgUser | null>(null);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
   const [currentScreen, setCurrentScreen] = useState<ScreenState>("builder");
+  const [botDeck, setBotDeck] = useState<Card[]>([]);
 
   const calculateCardPower = (card: Card): number => {
     return card.attack * 0.4 + card.defense * 0.3 + card.speed * 0.3;
+  };
+
+  const calculateDeckPower = (deck: Card[]): number => {
+    return deck.reduce((total, card) => total + calculateCardPower(card), 0);
+  };
+
+  const generateBotDeck = (): Card[] => {
+    const shuffled = [...mockCards].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 5);
   };
 
   // Mock cards data
@@ -87,6 +97,12 @@ export default function HomePage() {
     if (selectedCards.length === 5) {
       setCurrentScreen("summary");
     }
+  };
+
+  const handleStartBattle = () => {
+    const newBotDeck = generateBotDeck();
+    setBotDeck(newBotDeck);
+    setCurrentScreen("battle");
   };
 
   const handleBackToBuilder = () => {
@@ -203,7 +219,7 @@ export default function HomePage() {
               Build Deck {selectedCards.length !== 5 && `(${selectedCards.length}/5)`}
             </button>
           </div>
-        ) : (
+        ) : currentScreen === "summary" ? (
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
               Deck Summary
@@ -241,6 +257,93 @@ export default function HomePage() {
                   return total + (card ? calculateCardPower(card) : 0);
                 }, 0).toFixed(1)}
               </p>
+            </div>
+
+            <button
+              onClick={handleStartBattle}
+              className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
+            >
+              Start Battle
+            </button>
+
+            <button
+              onClick={handleBackToBuilder}
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
+            >
+              Back to Builder
+            </button>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+              Battle Result
+            </h2>
+            
+            {/* User Deck */}
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-blue-900 mb-2 text-center">Your Deck</h3>
+              <div className="space-y-2 mb-3">
+                {selectedCards.map(cardId => {
+                  const card = mockCards.find(c => c.id === cardId);
+                  if (!card) return null;
+                  
+                  return (
+                    <div key={card.id} className="bg-blue-50 rounded-lg p-3">
+                      <div className="flex justify-between items-center">
+                        <h4 className="text-sm font-semibold text-blue-900">{card.name}</h4>
+                        <span className="text-xs font-medium text-blue-700">
+                          {calculateCardPower(card).toFixed(1)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="bg-blue-100 rounded-lg p-3 text-center">
+                <p className="text-sm font-semibold text-blue-900">
+                  Total Power: {calculateDeckPower(selectedCards.map(id => mockCards.find(c => c.id === id)).filter(Boolean) as Card[]).toFixed(1)}
+                </p>
+              </div>
+            </div>
+
+            {/* Battle Result */}
+            <div className="mb-4">
+              <div className="bg-gray-800 rounded-lg p-4 text-center">
+                {(() => {
+                  const userPower = calculateDeckPower(selectedCards.map(id => mockCards.find(c => c.id === id)).filter(Boolean) as Card[]);
+                  const botPower = calculateDeckPower(botDeck);
+                  
+                  if (userPower > botPower) {
+                    return <p className="text-lg font-bold text-green-400">You Win!</p>;
+                  } else if (botPower > userPower) {
+                    return <p className="text-lg font-bold text-red-400">Bot Wins!</p>;
+                  } else {
+                    return <p className="text-lg font-bold text-yellow-400">Draw!</p>;
+                  }
+                })()}
+              </div>
+            </div>
+
+            {/* Bot Deck */}
+            <div className="mb-4">
+              <h3 className="text-sm font-semibold text-red-900 mb-2 text-center">Bot Deck</h3>
+              <div className="space-y-2 mb-3">
+                {botDeck.map(card => (
+                  <div key={card.id} className="bg-red-50 rounded-lg p-3">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-semibold text-red-900">{card.name}</h4>
+                      <span className="text-xs font-medium text-red-700">
+                        {calculateCardPower(card).toFixed(1)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-red-100 rounded-lg p-3 text-center">
+                <p className="text-sm font-semibold text-red-900">
+                  Total Power: {calculateDeckPower(botDeck).toFixed(1)}
+                </p>
+              </div>
             </div>
 
             <button
