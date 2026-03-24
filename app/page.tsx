@@ -16,7 +16,20 @@ interface Card {
   speed: number;
 }
 
-type ScreenState = "builder" | "summary" | "battle";
+interface Player {
+  id: number;
+  name: string;
+  deck: Card[];
+}
+
+interface Match {
+  id: number;
+  player1: Player;
+  player2: Player;
+  winner?: Player;
+}
+
+type ScreenState = "builder" | "summary" | "battle" | "tournament";
 
 declare global {
   interface Window {
@@ -39,6 +52,8 @@ export default function HomePage() {
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
   const [currentScreen, setCurrentScreen] = useState<ScreenState>("builder");
   const [botDeck, setBotDeck] = useState<Card[]>([]);
+  const [tournamentPlayers, setTournamentPlayers] = useState<Player[]>([]);
+  const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
 
   const calculateCardPower = (card: Card): number => {
     return card.attack * 0.4 + card.defense * 0.3 + card.speed * 0.3;
@@ -51,6 +66,48 @@ export default function HomePage() {
   const generateBotDeck = (): Card[] => {
     const shuffled = [...mockCards].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 5);
+  };
+
+  const generateTournamentPlayers = (): Player[] => {
+    const players: Player[] = [];
+    
+    // Add current user as Player 1
+    const userDeck = selectedCards.map(id => mockCards.find(c => c.id === id)).filter(Boolean) as Card[];
+    players.push({
+      id: 1,
+      name: user?.first_name || "You",
+      deck: userDeck
+    });
+    
+    // Add 15 AI players
+    for (let i = 2; i <= 16; i++) {
+      players.push({
+        id: i,
+        name: `Player ${i}`,
+        deck: generateBotDeck()
+      });
+    }
+    
+    return players;
+  };
+
+  const generateTournamentBracket = (): Match[] => {
+    const players = generateTournamentPlayers();
+    const matches: Match[] = [];
+    
+    // Shuffle players for random matchups
+    const shuffled = [...players].sort(() => Math.random() - 0.5);
+    
+    // Create 8 matches
+    for (let i = 0; i < 8; i++) {
+      matches.push({
+        id: i + 1,
+        player1: shuffled[i * 2],
+        player2: shuffled[i * 2 + 1]
+      });
+    }
+    
+    return matches;
   };
 
   // Mock cards data
@@ -103,6 +160,18 @@ export default function HomePage() {
     const newBotDeck = generateBotDeck();
     setBotDeck(newBotDeck);
     setCurrentScreen("battle");
+  };
+
+  const handleJoinTournament = () => {
+    const players = generateTournamentPlayers();
+    setTournamentPlayers(players);
+    setTournamentMatches([]);
+    setCurrentScreen("tournament");
+  };
+
+  const handleGenerateBracket = () => {
+    const matches = generateTournamentBracket();
+    setTournamentMatches(matches);
   };
 
   const handleBackToBuilder = () => {
@@ -265,6 +334,89 @@ export default function HomePage() {
             >
               Start Battle
             </button>
+
+            <button
+              onClick={handleJoinTournament}
+              className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
+            >
+              Join Tournament
+            </button>
+
+            <button
+              onClick={handleBackToBuilder}
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
+            >
+              Back to Builder
+            </button>
+          </div>
+        ) : currentScreen === "tournament" ? (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+              Tournament Lobby
+            </h2>
+            
+            {tournamentMatches.length === 0 ? (
+              <>
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
+                    16 Players Ready
+                  </h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {tournamentPlayers.map(player => (
+                      <div
+                        key={player.id}
+                        className={`p-2 rounded-lg text-center text-xs ${
+                          player.id === 1
+                            ? 'bg-blue-100 border border-blue-300'
+                            : 'bg-gray-50 border border-gray-200'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{player.name}</p>
+                        <p className="text-gray-600">Power: {calculateDeckPower(player.deck).toFixed(1)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleGenerateBracket}
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
+                >
+                  Generate Bracket
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
+                    First Round Matches
+                  </h3>
+                  <div className="space-y-3">
+                    {tournamentMatches.map(match => (
+                      <div key={match.id} className="bg-white rounded-lg p-3 shadow-sm">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1 text-center">
+                            <p className="text-sm font-medium text-gray-900">{match.player1.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {calculateDeckPower(match.player1.deck).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="px-3">
+                            <span className="text-xs font-semibold text-gray-500">VS</span>
+                          </div>
+                          <div className="flex-1 text-center">
+                            <p className="text-sm font-medium text-gray-900">{match.player2.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {calculateDeckPower(match.player2.deck).toFixed(1)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <button
               onClick={handleBackToBuilder}
