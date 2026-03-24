@@ -69,6 +69,8 @@ export default function HomePage() {
   const [tournamentPlayers, setTournamentPlayers] = useState<Player[]>([]);
   const [tournamentMatches, setTournamentMatches] = useState<Match[]>([]);
   const [tournamentResults, setTournamentResults] = useState<TournamentResults | null>(null);
+  const [coinBalance, setCoinBalance] = useState(1000);
+  const [lastTournamentRewarded, setLastTournamentRewarded] = useState(false);
 
   // Mock cards data
   const mockCards: Card[] = [
@@ -288,6 +290,21 @@ export default function HomePage() {
   const handleSimulateTournament = () => {
     const results = simulateTournament();
     setTournamentResults(results);
+    setLastTournamentRewarded(false);
+    
+    // Award coins if user is in top 3 and hasn't been rewarded yet
+    const userPlacement = results.top3.findIndex(player => player.id === 1);
+    if (userPlacement !== -1 && !lastTournamentRewarded) {
+      let reward = 0;
+      if (userPlacement === 0) reward = 500; // 1st place
+      else if (userPlacement === 1) reward = 300; // 2nd place
+      else if (userPlacement === 2) reward = 200; // 3rd place
+      
+      if (reward > 0) {
+        setCoinBalance(prev => prev + reward);
+        setLastTournamentRewarded(true);
+      }
+    }
   };
 
   const handleGenerateBracket = () => {
@@ -301,6 +318,13 @@ export default function HomePage() {
 
   const handleBackToSummary = () => {
     setCurrentScreen("summary");
+  };
+
+  const handleResetTournament = () => {
+    setTournamentPlayers([]);
+    setTournamentMatches([]);
+    setTournamentResults(null);
+    setLastTournamentRewarded(false);
   };
 
   // Telegram detection
@@ -526,249 +550,275 @@ export default function HomePage() {
     );
   };
 
-  const renderTournamentScreen = () => (
-    <div className="mb-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-        Tournament Lobby
-      </h2>
+  const renderTournamentScreen = () => {
+    const getUserRewardMessage = () => {
+      if (!tournamentResults) return "";
       
-      {!tournamentResults ? (
-        <>
-          {tournamentMatches.length === 0 ? (
-            <>
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
-                  16 Players Ready
-                </h3>
-                <div className="grid grid-cols-4 gap-2">
-                  {tournamentPlayers.map(player => (
-                    <div
-                      key={player.id}
-                      className={`p-2 rounded-lg text-center text-xs ${
-                        player.id === 1
-                          ? 'bg-blue-100 border border-blue-300'
-                          : 'bg-gray-50 border border-gray-200'
-                      }`}
-                    >
-                      <p className="font-medium text-gray-900">{player.name}</p>
-                      <p className="text-gray-600">Power: {calculateDeckPower(player.deck).toFixed(1)}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+      const userPlacement = tournamentResults.top3.findIndex(player => player.id === 1);
+      if (userPlacement === -1) return "No reward this time";
+      
+      const rewards = [500, 300, 200];
+      return `You earned ${rewards[userPlacement]} coins!`;
+    };
 
-              <button
-                onClick={handleGenerateBracket}
-                className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
-              >
-                Generate Bracket
-              </button>
-            </>
-          ) : (
-            <>
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
-                  First Round Matches
-                </h3>
-                <div className="space-y-3">
-                  {tournamentMatches.map(match => (
-                    <div key={match.id} className="bg-white rounded-lg p-3 shadow-sm">
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1 text-center">
-                          <p className="text-sm font-medium text-gray-900">{match.player1.name}</p>
-                          <p className="text-xs text-gray-600">
-                            {calculateDeckPower(match.player1.deck).toFixed(1)}
-                          </p>
-                        </div>
-                        <div className="px-3">
-                          <span className="text-xs font-semibold text-gray-500">VS</span>
-                        </div>
-                        <div className="flex-1 text-center">
-                          <p className="text-sm font-medium text-gray-900">{match.player2.name}</p>
-                          <p className="text-xs text-gray-600">
-                            {calculateDeckPower(match.player2.deck).toFixed(1)}
-                          </p>
+    return (
+      <div className="mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+          Tournament Lobby
+        </h2>
+        
+        {!tournamentResults ? (
+          <>
+            {tournamentMatches.length === 0 ? (
+              <>
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
+                    16 Players Ready
+                  </h3>
+                  <div className="grid grid-cols-4 gap-2">
+                    {tournamentPlayers.map(player => (
+                      <div
+                        key={player.id}
+                        className={`p-2 rounded-lg text-center text-xs ${
+                          player.id === 1
+                            ? 'bg-blue-100 border border-blue-300'
+                            : 'bg-gray-50 border border-gray-200'
+                        }`}
+                      >
+                        <p className="font-medium text-gray-900">{player.name}</p>
+                        <p className="text-gray-600">Power: {calculateDeckPower(player.deck).toFixed(1)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleGenerateBracket}
+                  className="w-full bg-purple-500 hover:bg-purple-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
+                >
+                  Generate Bracket
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
+                    First Round Matches
+                  </h3>
+                  <div className="space-y-3">
+                    {tournamentMatches.map(match => (
+                      <div key={match.id} className="bg-white rounded-lg p-3 shadow-sm">
+                        <div className="flex justify-between items-center">
+                          <div className="flex-1 text-center">
+                            <p className="text-sm font-medium text-gray-900">{match.player1.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {calculateDeckPower(match.player1.deck).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="px-3">
+                            <span className="text-xs font-semibold text-gray-500">VS</span>
+                          </div>
+                          <div className="flex-1 text-center">
+                            <p className="text-sm font-medium text-gray-900">{match.player2.name}</p>
+                            <p className="text-xs text-gray-600">
+                              {calculateDeckPower(match.player2.deck).toFixed(1)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <button
-                onClick={handleSimulateTournament}
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
-              >
-                Simulate Tournament
-              </button>
-            </>
-          )}
-        </>
-      ) : (
-        <>
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
-              Tournament Results
-            </h3>
-            
-            <div className="bg-gradient-to-r from-yellow-100 to-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
-              <h4 className="text-center font-bold text-gray-900 mb-3">🏆 Top 3</h4>
-              <div className="space-y-2">
-                {tournamentResults.top3.map((player, index) => {
-                  const isUser = player.id === 1;
-                  return (
-                    <div
-                      key={player.id}
-                      className={`flex justify-between items-center p-2 rounded ${
-                        isUser ? 'bg-blue-100 border border-blue-300' : 'bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <span className="font-bold mr-2">
-                          {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
-                        </span>
-                        <span className={`font-medium ${isUser ? 'text-blue-900' : 'text-gray-900'}`}>
-                          {player.name}
-                        </span>
-                      </div>
-                      <span className="text-sm font-medium text-gray-700">
-                        {calculateDeckPower(player.deck).toFixed(1)}
-                      </span>
-                    </div>
-                  );
-                })}
+                <button
+                  onClick={handleSimulateTournament}
+                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
+                >
+                  Simulate Tournament
+                </button>
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 text-center">
+                Tournament Results
+              </h3>
+              
+              {/* Reward Message */}
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-center">
+                <p className="text-sm font-semibold text-green-900">
+                  {getUserRewardMessage()}
+                </p>
               </div>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Quarterfinals</h4>
+              
+              <div className="bg-gradient-to-r from-yellow-100 to-yellow-50 border border-yellow-300 rounded-lg p-4 mb-4">
+                <h4 className="text-center font-bold text-gray-900 mb-3">🏆 Top 3</h4>
                 <div className="space-y-2">
-                  {tournamentResults.quarterfinals.map(match => (
-                    <div key={match.id} className="bg-white rounded-lg p-2 shadow-sm">
-                      <div className="flex justify-between items-center text-xs">
-                        <div className="flex-1 text-center">
-                          <p className={match.winner?.id === match.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                            {match.player1.name}
-                          </p>
-                          <p className="text-gray-500">
-                            {calculateDeckPower(match.player1.deck).toFixed(1)}
-                          </p>
+                  {tournamentResults.top3.map((player, index) => {
+                    const isUser = player.id === 1;
+                    return (
+                      <div
+                        key={player.id}
+                        className={`flex justify-between items-center p-2 rounded ${
+                          isUser ? 'bg-blue-100 border border-blue-300' : 'bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <span className="font-bold mr-2">
+                            {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                          </span>
+                          <span className={`font-medium ${isUser ? 'text-blue-900' : 'text-gray-900'}`}>
+                            {player.name}
+                          </span>
                         </div>
-                        <div className="px-2">
-                          <span className="font-semibold text-gray-500">VS</span>
-                        </div>
-                        <div className="flex-1 text-center">
-                          <p className={match.winner?.id === match.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                            {match.player2.name}
-                          </p>
-                          <p className="text-gray-500">
-                            {calculateDeckPower(match.player2.deck).toFixed(1)}
-                          </p>
-                        </div>
+                        <span className="text-sm font-medium text-gray-700">
+                          {calculateDeckPower(player.deck).toFixed(1)}
+                        </span>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Semifinals</h4>
-                <div className="space-y-2">
-                  {tournamentResults.semifinals.map(match => (
-                    <div key={match.id} className="bg-white rounded-lg p-2 shadow-sm">
-                      <div className="flex justify-between items-center text-xs">
-                        <div className="flex-1 text-center">
-                          <p className={match.winner?.id === match.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                            {match.player1.name}
-                          </p>
-                          <p className="text-gray-500">
-                            {calculateDeckPower(match.player1.deck).toFixed(1)}
-                          </p>
-                        </div>
-                        <div className="px-2">
-                          <span className="font-semibold text-gray-500">VS</span>
-                        </div>
-                        <div className="flex-1 text-center">
-                          <p className={match.winner?.id === match.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                            {match.player2.name}
-                          </p>
-                          <p className="text-gray-500">
-                            {calculateDeckPower(match.player2.deck).toFixed(1)}
-                          </p>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Quarterfinals</h4>
+                  <div className="space-y-2">
+                    {tournamentResults.quarterfinals.map(match => (
+                      <div key={match.id} className="bg-white rounded-lg p-2 shadow-sm">
+                        <div className="flex justify-between items-center text-xs">
+                          <div className="flex-1 text-center">
+                            <p className={match.winner?.id === match.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                              {match.player1.name}
+                            </p>
+                            <p className="text-gray-500">
+                              {calculateDeckPower(match.player1.deck).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="px-2">
+                            <span className="font-semibold text-gray-500">VS</span>
+                          </div>
+                          <div className="flex-1 text-center">
+                            <p className={match.winner?.id === match.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                              {match.player2.name}
+                            </p>
+                            <p className="text-gray-500">
+                              {calculateDeckPower(match.player2.deck).toFixed(1)}
+                            </p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Final</h4>
-                <div className="bg-white rounded-lg p-2 shadow-sm">
-                  <div className="flex justify-between items-center text-xs">
-                    <div className="flex-1 text-center">
-                      <p className={tournamentResults.final.winner?.id === tournamentResults.final.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                        {tournamentResults.final.player1.name}
-                      </p>
-                      <p className="text-gray-500">
-                        {calculateDeckPower(tournamentResults.final.player1.deck).toFixed(1)}
-                      </p>
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Semifinals</h4>
+                  <div className="space-y-2">
+                    {tournamentResults.semifinals.map(match => (
+                      <div key={match.id} className="bg-white rounded-lg p-2 shadow-sm">
+                        <div className="flex justify-between items-center text-xs">
+                          <div className="flex-1 text-center">
+                            <p className={match.winner?.id === match.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                              {match.player1.name}
+                            </p>
+                            <p className="text-gray-500">
+                              {calculateDeckPower(match.player1.deck).toFixed(1)}
+                            </p>
+                          </div>
+                          <div className="px-2">
+                            <span className="font-semibold text-gray-500">VS</span>
+                          </div>
+                          <div className="flex-1 text-center">
+                            <p className={match.winner?.id === match.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                              {match.player2.name}
+                            </p>
+                            <p className="text-gray-500">
+                              {calculateDeckPower(match.player2.deck).toFixed(1)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Final</h4>
+                  <div className="bg-white rounded-lg p-2 shadow-sm">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex-1 text-center">
+                        <p className={tournamentResults.final.winner?.id === tournamentResults.final.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                          {tournamentResults.final.player1.name}
+                        </p>
+                        <p className="text-gray-500">
+                          {calculateDeckPower(tournamentResults.final.player1.deck).toFixed(1)}
+                        </p>
+                      </div>
+                      <div className="px-2">
+                        <span className="font-semibold text-gray-500">VS</span>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <p className={tournamentResults.final.winner?.id === tournamentResults.final.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                          {tournamentResults.final.player2.name}
+                        </p>
+                        <p className="text-gray-500">
+                          {calculateDeckPower(tournamentResults.final.player2.deck).toFixed(1)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="px-2">
-                      <span className="font-semibold text-gray-500">VS</span>
-                    </div>
-                    <div className="flex-1 text-center">
-                      <p className={tournamentResults.final.winner?.id === tournamentResults.final.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                        {tournamentResults.final.player2.name}
-                      </p>
-                      <p className="text-gray-500">
-                        {calculateDeckPower(tournamentResults.final.player2.deck).toFixed(1)}
-                      </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Third Place Match</h4>
+                  <div className="bg-white rounded-lg p-2 shadow-sm">
+                    <div className="flex justify-between items-center text-xs">
+                      <div className="flex-1 text-center">
+                        <p className={tournamentResults.thirdPlace.winner?.id === tournamentResults.thirdPlace.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                          {tournamentResults.thirdPlace.player1.name}
+                        </p>
+                        <p className="text-gray-500">
+                          {calculateDeckPower(tournamentResults.thirdPlace.player1.deck).toFixed(1)}
+                        </p>
+                      </div>
+                      <div className="px-2">
+                        <span className="font-semibold text-gray-500">VS</span>
+                      </div>
+                      <div className="flex-1 text-center">
+                        <p className={tournamentResults.thirdPlace.winner?.id === tournamentResults.thirdPlace.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
+                          {tournamentResults.thirdPlace.player2.name}
+                        </p>
+                        <p className="text-gray-500">
+                          {calculateDeckPower(tournamentResults.thirdPlace.player2.deck).toFixed(1)}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div>
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">Third Place Match</h4>
-                <div className="bg-white rounded-lg p-2 shadow-sm">
-                  <div className="flex justify-between items-center text-xs">
-                    <div className="flex-1 text-center">
-                      <p className={tournamentResults.thirdPlace.winner?.id === tournamentResults.thirdPlace.player1.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                        {tournamentResults.thirdPlace.player1.name}
-                      </p>
-                      <p className="text-gray-500">
-                        {calculateDeckPower(tournamentResults.thirdPlace.player1.deck).toFixed(1)}
-                      </p>
-                    </div>
-                    <div className="px-2">
-                      <span className="font-semibold text-gray-500">VS</span>
-                    </div>
-                    <div className="flex-1 text-center">
-                      <p className={tournamentResults.thirdPlace.winner?.id === tournamentResults.thirdPlace.player2.id ? 'font-bold text-green-600' : 'text-gray-600'}>
-                        {tournamentResults.thirdPlace.player2.name}
-                      </p>
-                      <p className="text-gray-500">
-                        {calculateDeckPower(tournamentResults.thirdPlace.player2.deck).toFixed(1)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+              <button
+                onClick={handleResetTournament}
+                className="w-full bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-2"
+              >
+                Reset Tournament
+              </button>
 
-            <button
-              onClick={handleBackToSummary}
-              className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
-            >
-              Back to Summary
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
+              <button
+                onClick={handleBackToSummary}
+                className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
+              >
+                Back to Summary
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-gray-100 p-4">
@@ -796,6 +846,13 @@ export default function HomePage() {
             </p>
           </div>
         )}
+
+        {/* Coin Balance Display */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm font-semibold text-yellow-900">
+            🪙 Coins: {coinBalance}
+          </p>
+        </div>
 
         {currentScreen === "builder" && renderBuilderScreen()}
         {currentScreen === "summary" && renderSummaryScreen()}
