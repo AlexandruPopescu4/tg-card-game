@@ -16,6 +16,8 @@ interface Card {
   speed: number;
 }
 
+type ScreenState = "builder" | "summary";
+
 declare global {
   interface Window {
     Telegram?: {
@@ -35,6 +37,11 @@ export default function HomePage() {
   const [inTelegram, setInTelegram] = useState(false);
   const [user, setUser] = useState<TgUser | null>(null);
   const [selectedCards, setSelectedCards] = useState<number[]>([]);
+  const [currentScreen, setCurrentScreen] = useState<ScreenState>("builder");
+
+  const calculateCardPower = (card: Card): number => {
+    return card.attack * 0.4 + card.defense * 0.3 + card.speed * 0.3;
+  };
 
   // Mock cards data
   const mockCards: Card[] = [
@@ -74,6 +81,16 @@ export default function HomePage() {
       }
       return prev;
     });
+  };
+
+  const handleBuildDeck = () => {
+    if (selectedCards.length === 5) {
+      setCurrentScreen("summary");
+    }
+  };
+
+  const handleBackToBuilder = () => {
+    setCurrentScreen("builder");
   };
 
   useEffect(() => {
@@ -136,47 +153,104 @@ export default function HomePage() {
           </div>
         )}
 
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3 text-center">
-            Choose 5 cards
-          </h2>
-          
-          <div className="bg-white rounded-lg p-3 mb-4 text-center">
-            <p className="text-sm font-medium text-gray-700">
-              Selected: {selectedCards.length} / 5
-            </p>
-          </div>
+        {currentScreen === "builder" ? (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3 text-center">
+              Choose 5 cards
+            </h2>
+            
+            <div className="bg-white rounded-lg p-3 mb-4 text-center">
+              <p className="text-sm font-medium text-gray-700">
+                Selected: {selectedCards.length} / 5
+              </p>
+            </div>
 
-          <div className="grid grid-cols-3 gap-2 mb-6">
-            {mockCards.map(card => {
-              const isSelected = selectedCards.includes(card.id);
-              return (
-                <div
-                  key={card.id}
-                  onClick={() => toggleCardSelection(card.id)}
-                  className={`p-2 rounded-lg border-2 cursor-pointer transition-all ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-gray-200 bg-white hover:border-gray-300'
-                  }`}
-                >
-                  <h3 className="text-xs font-semibold text-gray-900 mb-1 truncate">
-                    {card.name}
-                  </h3>
-                  <div className="text-xs text-gray-600 space-y-1">
-                    <div>⚔️ {card.attack}</div>
-                    <div>🛡️ {card.defense}</div>
-                    <div>💨 {card.speed}</div>
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              {mockCards.map(card => {
+                const isSelected = selectedCards.includes(card.id);
+                return (
+                  <div
+                    key={card.id}
+                    onClick={() => toggleCardSelection(card.id)}
+                    className={`p-2 rounded-lg border-2 cursor-pointer transition-all ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <h3 className="text-xs font-semibold text-gray-900 mb-1 truncate">
+                      {card.name}
+                    </h3>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <div>⚔️ {card.attack}</div>
+                      <div>🛡️ {card.defense}</div>
+                      <div>💨 {card.speed}</div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                );
+              })}
+            </div>
 
-        <button className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4">
-          Build Deck
-        </button>
+            <button
+              onClick={handleBuildDeck}
+              disabled={selectedCards.length !== 5}
+              className={`w-full font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4 ${
+                selectedCards.length === 5
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              Build Deck {selectedCards.length !== 5 && `(${selectedCards.length}/5)`}
+            </button>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 text-center">
+              Deck Summary
+            </h2>
+            
+            <div className="space-y-3 mb-6">
+              {selectedCards.map(cardId => {
+                const card = mockCards.find(c => c.id === cardId);
+                if (!card) return null;
+                
+                const power = calculateCardPower(card);
+                
+                return (
+                  <div key={card.id} className="bg-white rounded-lg p-4 shadow-sm">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-gray-900">{card.name}</h3>
+                      <span className="text-sm font-medium text-blue-600">
+                        Power: {power.toFixed(1)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600 grid grid-cols-3 gap-2">
+                      <div>⚔️ {card.attack}</div>
+                      <div>🛡️ {card.defense}</div>
+                      <div>💨 {card.speed}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <p className="text-center text-lg font-semibold text-blue-900">
+                Total Deck Power: {selectedCards.reduce((total, cardId) => {
+                  const card = mockCards.find(c => c.id === cardId);
+                  return total + (card ? calculateCardPower(card) : 0);
+                }, 0).toFixed(1)}
+              </p>
+            </div>
+
+            <button
+              onClick={handleBackToBuilder}
+              className="w-full bg-gray-500 hover:bg-gray-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 mb-4"
+            >
+              Back to Builder
+            </button>
+          </div>
+        )}
 
         <p className="text-center text-sm text-gray-500">
           {inTelegram ? "Running in Telegram" : "Running in browser"}
